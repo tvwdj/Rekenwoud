@@ -3,6 +3,11 @@
 import React, { useRef, useEffect, useCallback } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import { gsap } from "gsap"; // Importeer gsap
+import { ScrollTrigger } from "gsap/ScrollTrigger"; // Importeer ScrollTrigger
+
+// Registreer de ScrollTrigger plugin
+gsap.registerPlugin(ScrollTrigger);
 
 // Default settings if props are not provided
 const DEFAULT_SETTINGS = {
@@ -11,18 +16,12 @@ const DEFAULT_SETTINGS = {
     showPlant: true, // Example setting, adjust as needed
 };
 
-// **NIEUWE AANPASSING**: Voeg een 'viewMode' prop toe met 'garden' als standaard
-export default function ThreeGrid({
-    settings = DEFAULT_SETTINGS,
-    onTilesSelected = () => { },
-    viewMode = "garden", // 'garden' of 'landing'
-}) {
+export default function ThreeGrid({ settings = DEFAULT_SETTINGS, onTilesSelected = () => { } }) {
     // Persistent refs for Three.js objects
     const mountRef = useRef(null);
     const sceneRef = useRef(null);
     const cameraRef = useRef(null);
     const rendererRef = useRef(null);
-    const controlsRef = useRef(null); // Ref to store OrbitControls instance
     const raycaster = useRef(new THREE.Raycaster());
     const mouse = useRef(new THREE.Vector2());
     const tilesRef = useRef([]);
@@ -30,11 +29,8 @@ export default function ThreeGrid({
     const selectedRefs = useRef([]);
     const isMouseDown = useRef(false);
 
-    // Mouse events for drag-selection (alleen actief in 'garden' mode)
+    // Mouse events for drag-selection
     useEffect(() => {
-        // **NIEUWE AANPASSING**: Alleen actieve event listeners in 'garden' mode
-        if (viewMode !== "garden") return;
-
         const handleMouseDown = () => (isMouseDown.current = true);
         const handleMouseUp = () => (isMouseDown.current = false);
         window.addEventListener("mousedown", handleMouseDown);
@@ -43,7 +39,7 @@ export default function ThreeGrid({
             window.removeEventListener("mousedown", handleMouseDown);
             window.removeEventListener("mouseup", handleMouseUp);
         };
-    }, [viewMode]); // Dependency op viewMode
+    }, []);
 
     // Helper to reset sprites (plants and grass) from the scene
     const resetSprites = useCallback(() => {
@@ -54,7 +50,7 @@ export default function ThreeGrid({
             if (sp.geometry) sp.geometry.dispose();
             if (sp.material) {
                 if (Array.isArray(sp.material)) {
-                    sp.material.forEach((m) => m.dispose());
+                    sp.material.forEach(m => m.dispose());
                 } else {
                     sp.material.dispose();
                 }
@@ -74,43 +70,59 @@ export default function ThreeGrid({
         const width = currentMount.clientWidth || 600;
         const height = currentMount.clientHeight || 400;
 
+        // Scene setup
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0xffffff);
         sceneRef.current = scene;
 
-        const gW = settings.gardenWidth;
-        const gH = settings.gardenHeight;
-        const gridTiles = 30;
-        const tileSize = 0.3;
-        const halfGridSize = (gridTiles / 2) * tileSize;
-
+        // Camera setup - Gebruikt nu de startpositie voor de GSAP animatie
         const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-
-        // **NIEUWE AANPASSING**: Pas camera-positie aan op basis van viewMode
-        // ... in de useEffect voor de scene-setup
-        if (viewMode === "landing") {
-            // Aangepaste positie om de planten onderaan het scherm te tonen
-            // maar zonder ze af te snijden.
-            camera.position.set(0, 1.2, 5.5);
-            camera.lookAt(0, 0.4, 0);
-        } else {
-            // De bestaande code voor de 'garden' mode
-            camera.position.set(0, 2.2, 2.2);
-            camera.lookAt(0, 0, 0);
-        }
-        // ...
         cameraRef.current = camera;
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        // Renderer setup
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(width, height);
         renderer.setPixelRatio(window.devicePixelRatio);
         currentMount.appendChild(renderer.domElement);
         rendererRef.current = renderer;
 
+        // Lighting
         scene.add(new THREE.AmbientLight(0xffffff, 0.8));
         const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
         dirLight.position.set(5, 10, 5);
         scene.add(dirLight);
+
+        // Initial camera positions voor de GSAP animatie
+        const startCamPos = new THREE.Vector3(0, 0.4, 2); // Camera dichterbij en lager
+        const startCamLook = new THREE.Vector3(0, 0.1, 0); // Kijkpunt is nu op de toppen van de bloemen
+        const endCamPos = new THREE.Vector3(0, 2.2, 2.2);
+        const endCamLook = new THREE.Vector3(0, 0, 0);
+
+        // Stel de beginpositie van de camera in
+        camera.position.copy(startCamPos);
+        camera.lookAt(startCamLook);
+
+        // === GSAP ScrollTrigger voor de camera-animatie ===
+        ScrollTrigger.create({
+            trigger: ".homepage-container",
+            start: "top top",
+            end: "bottom bottom",
+            scrub: true,
+            onUpdate: (self) => {
+                const scrollProgress = self.progress;
+                const newCamPos = startCamPos.clone().lerp(endCamPos, scrollProgress);
+                const newLookAt = startCamLook.clone().lerp(endCamLook, scrollProgress);
+                camera.position.copy(newCamPos);
+                camera.lookAt(newLookAt);
+            },
+        });
+
+        const gW = settings.gardenWidth;
+        const gH = settings.gardenHeight;
+
+        const gridTiles = 30;
+        const tileSize = 0.3;
+        const halfGridSize = (gridTiles / 2) * tileSize;
 
         const startX = Math.floor((gridTiles - gW) / 2);
         const startZ = Math.floor((gridTiles - gH) / 2);
@@ -122,6 +134,7 @@ export default function ThreeGrid({
 
         const lineMaterial = new THREE.LineBasicMaterial({ color: 0xeeeeee });
 
+        // Horizontal lines (along Z-axis)
         for (let i = 0; i <= gW; i++) {
             const x = gardenStartX + i * tileSize;
             const geometry = new THREE.BufferGeometry().setFromPoints([
@@ -132,6 +145,7 @@ export default function ThreeGrid({
             scene.add(line);
         }
 
+        // Vertical lines (along X-axis)
         for (let j = 0; j <= gH; j++) {
             const z = gardenStartZ + j * tileSize;
             const geometry = new THREE.BufferGeometry().setFromPoints([
@@ -146,162 +160,140 @@ export default function ThreeGrid({
         tilesRef.current = [];
         selectedRefs.current = [];
 
-        // **NIEUWE AANPASSING**: Alleen grid-tegels maken in 'garden' mode
-        if (viewMode === "garden") {
-            for (let x = 0; x < gridTiles; x++) {
-                for (let z = 0; z < gridTiles; z++) {
-                    const inGarden =
-                        x >= startX && x < startX + gW && z >= startZ && z < startZ + gH;
+        // Create selection tiles
+        for (let x = 0; x < gridTiles; x++) {
+            for (let z = 0; z < gridTiles; z++) {
+                const inGarden =
+                  x >= startX && x < startX + gW &&
+                  z >= startZ && z < startZ + gH;
 
-                    const material = new THREE.MeshBasicMaterial({
-                        color: 0xffffff,
-                        opacity: 0,
-                        transparent: true,
-                        side: THREE.DoubleSide,
-                    });
-                    const tile = new THREE.Mesh(
-                        new THREE.PlaneGeometry(tileSize, tileSize),
-                        material
-                    );
-                    tile.rotation.x = -Math.PI / 2;
-                    tile.position.set(
-                        x * tileSize - halfGridSize + tileSize / 2,
-                        0,
-                        z * tileSize - halfGridSize + tileSize / 2
-                    );
-                    tile.userData = { inGarden, selected: false, gridX: x, gridZ: z };
-                    scene.add(tile);
-                    tilesRef.current.push(tile);
+              const material = new THREE.MeshBasicMaterial({
+                  color: 0xffffff,
+                  opacity: 0,
+                  transparent: true,
+                  side: THREE.DoubleSide,
+              });
+              const tile = new THREE.Mesh(new THREE.PlaneGeometry(tileSize, tileSize), material);
+              tile.rotation.x = -Math.PI / 2;
+              tile.position.set(
+                  x * tileSize - halfGridSize + tileSize / 2,
+                  0,
+                  z * tileSize - halfGridSize + tileSize / 2
+              );
+              tile.userData = { inGarden, selected: false, gridX: x, gridZ: z };
+              scene.add(tile);
+              tilesRef.current.push(tile);
 
-                    if (inGarden) {
-                        tile.userData.selected = true;
-                        tile.material.color.set(0xf5f5f5);
-                        tile.material.opacity = 0.5;
-                        selectedRefs.current.push({ x, z });
-                    }
-                }
-            }
-        } else {
-            // In 'landing' mode, we maken een dummy selectie om de planten te renderen
-            selectedRefs.current = Array.from({ length: gW * gH }, (_, i) => ({
-                x: startX + (i % gW),
-                z: startZ + Math.floor(i / gW),
-            }));
-        }
+              if (inGarden) {
+                  tile.userData.selected = true;
+                  tile.material.color.set(0xf5f5f5);
+                  tile.material.opacity = 0.5;
+                  selectedRefs.current.push({ x, z });
+              }
+          }
+      }
 
-        // Callback for tile interaction (alleen actief in 'garden' mode)
         const handleTileInteraction = (e) => {
-            // **NIEUWE AANPASSING**: Deze logica wordt alleen uitgevoerd in 'garden' mode
-            if (viewMode !== "garden") return;
+          const rect = renderer.domElement.getBoundingClientRect();
+          mouse.current.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+          mouse.current.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
-            const rect = renderer.domElement.getBoundingClientRect();
-            mouse.current.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-            mouse.current.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+          raycaster.current.setFromCamera(mouse.current, cameraRef.current);
+          const intersects = raycaster.current.intersectObjects(tilesRef.current);
 
-            raycaster.current.setFromCamera(mouse.current, cameraRef.current);
-            const intersects = raycaster.current.intersectObjects(tilesRef.current);
+          if (intersects.length > 0) {
+              const hit = intersects[0];
+              const tile = hit.object;
 
-            if (intersects.length > 0) {
-                const hit = intersects[0];
-                const tile = hit.object;
+            if (!tile.userData.inGarden) return;
 
-                if (!tile.userData.inGarden) return;
-
-                if (selectedRefs.current.length >= 80 && !tile.userData.selected) {
-                    console.warn("Max 80 tiles can be selected.");
-                    return;
-                }
-
-                if (tile.userData.selected) {
-                    tile.userData.selected = false;
-                    tile.material.color.set(0xffffff);
-                    tile.material.opacity = 0;
-                    selectedRefs.current = selectedRefs.current.filter(
-                        (s) => !(s.x === tile.userData.gridX && s.z === tile.userData.gridZ)
-                    );
-                } else {
-                    tile.userData.selected = true;
-                    tile.material.color.set(0xf5f5f5);
-                    tile.material.opacity = 0.5;
-                    selectedRefs.current.push({ x: tile.userData.gridX, z: tile.userData.gridZ });
-                }
-                onTilesSelected([...selectedRefs.current]);
+            if (selectedRefs.current.length >= 80 && !tile.userData.selected) {
+                console.warn("Max 80 tiles can be selected.");
+                return;
             }
-        };
 
-        // Event listeners for user interaction (alleen actief in 'garden' mode)
-        // **NIEUWE AANPASSING**: Conditioneel toevoegen van event listeners
-        if (viewMode === "garden") {
-            renderer.domElement.addEventListener("pointermove", (e) => {
-                if (isMouseDown.current) handleTileInteraction(e);
-            });
-            renderer.domElement.addEventListener("click", handleTileInteraction);
-        }
+              if (tile.userData.selected) {
+                  tile.userData.selected = false;
+                  tile.material.color.set(0xffffff);
+                  tile.material.opacity = 0;
+                  selectedRefs.current = selectedRefs.current.filter(
+                      (s) => !(s.x === tile.userData.gridX && s.z === tile.userData.gridZ)
+                  );
+              } else {
+                  tile.userData.selected = true;
+                  tile.material.color.set(0xf5f5f5);
+                  tile.material.opacity = 0.5;
+                  selectedRefs.current.push({ x: tile.userData.gridX, z: tile.userData.gridZ });
+              }
+              onTilesSelected([...selectedRefs.current]);
+          }
+      };
 
-        // Orbit controls for camera movement
+        renderer.domElement.addEventListener("pointermove", (e) => {
+            if (isMouseDown.current) handleTileInteraction(e);
+        });
+        renderer.domElement.addEventListener("click", handleTileInteraction);
+
         const controls = new OrbitControls(camera, renderer.domElement);
-        // **NIEUWE AANPASSING**: Schakel controls uit in 'landing' mode
-        if (viewMode === "landing") {
-            controls.enabled = false;
-        }
         controls.enableDamping = true;
         controls.maxPolarAngle = Math.PI / 2;
-        controlsRef.current = controls;
 
-        // Render loop
         const animate = () => {
             requestAnimationFrame(animate);
-            const t = performance.now() * 0.001;
-            spriteMap.current.forEach((sp) => {
-                const { windPhase, windSpeed } = sp.userData;
-                const angle = Math.sin(t * windSpeed + windPhase) * THREE.MathUtils.degToRad(3);
-                sp.rotation.z = angle;
-            });
+
+          const t = performance.now() * 0.001;
+          spriteMap.current.forEach((sp) => {
+              const { windPhase, windSpeed } = sp.userData;
+              const angle = Math.sin(t * windSpeed + windPhase) * THREE.MathUtils.degToRad(3);
+              sp.rotation.z = angle;
+          });
 
             controls.update();
             renderer.render(scene, camera);
         };
         animate();
 
-        // Cleanup function for useEffect
-        return () => {
-            // **NIEUWE AANPASSING**: Conditioneel verwijderen van event listeners
-            if (viewMode === "garden") {
-                renderer.domElement.removeEventListener("click", handleTileInteraction);
-                renderer.domElement.removeEventListener("pointermove", handleTileInteraction);
-            }
+        const handleResize = () => {
+            const { innerWidth, innerHeight } = window;
+            renderer.setSize(innerWidth, innerHeight);
+            camera.aspect = innerWidth / innerHeight;
+            camera.updateProjectionMatrix();
+        };
 
-            if (currentMount && currentRenderer && currentRenderer.domElement) {
-                currentMount.removeChild(currentRenderer.domElement);
-            }
-            if (currentRenderer) {
-                currentRenderer.dispose();
-            }
-            scene.traverse((object) => {
-                if (object.isMesh || object.isLine) {
-                    if (object.geometry) object.geometry.dispose();
-                    if (object.material) {
-                        if (Array.isArray(object.material)) {
-                            object.material.forEach((m) => m.dispose());
-                        } else {
-                            object.material.dispose();
-                        }
+        window.addEventListener("resize", handleResize);
+
+        return () => {
+          ScrollTrigger.getAll().forEach(st => st.kill());
+          window.removeEventListener("resize", handleResize);
+          if (currentMount && currentRenderer && currentRenderer.domElement) {
+              currentMount.removeChild(currentRenderer.domElement);
+          }
+          if (currentRenderer) {
+              currentRenderer.dispose();
+          }
+          scene.traverse((object) => {
+              if (object.isMesh || object.isLine) {
+                  if (object.geometry) object.geometry.dispose();
+                  if (object.material) {
+                      if (Array.isArray(object.material)) {
+                        object.material.forEach(m => m.dispose());
+                    } else {
+                        object.material.dispose();
                     }
                 }
-            });
-            if (lineMaterial) lineMaterial.dispose();
+            }
+        });
+            lineMaterial.dispose();
         };
     }, [
         settings.gardenWidth,
         settings.gardenHeight,
         onTilesSelected,
-        resetSprites,
-        viewMode, // **BELANGRIJK**: viewMode toegevoegd als dependency
+        resetSprites
     ]);
 
     // useEffect for loading and placing flowers and grass
     useEffect(() => {
-        // **NIEUWE AANPASSING**: Alleen renderen in 'garden' mode
         if (!selectedRefs.current.length || !sceneRef.current) return;
 
         const scene = sceneRef.current;
@@ -324,46 +316,44 @@ export default function ThreeGrid({
             { name: "Trifolium repens", img: "/21/Trifolium_repens.png", patchShape: "patch", clusterSize: 3, minFlowers: 8, maxFlowers: 14, baseHeight: 0.3 },
             { name: "Phacelia tanacetifolia", img: "/21/phacelia_tanacetifolia.png", patchShape: "polygon", clusterSize: 2, minFlowers: 5, maxFlowers: 9, baseHeight: 1.1 },
         ];
-        // END TEMPORARY DUMMY PLANT DATA
 
         function randomPatchOffset(patchShape, radius = 1.2) {
-            // ... (deze functie blijft hetzelfde)
-            switch (patchShape) {
-                case "round": {
-                    const angle = Math.random() * 2 * Math.PI;
-                    const r = Math.random() * radius * 0.5;
-                    return [Math.cos(angle) * r, Math.sin(angle) * r];
-                }
-                case "patch": {
-                    const angle = Math.random() * 2 * Math.PI;
-                    const r = Math.random() * radius;
-                    return [Math.cos(angle) * r * 1.5, Math.sin(angle) * r * 0.8];
-                }
-                case "stripe": {
-                    return [
-                        (Math.random() - 0.5) * radius * 2.2,
-                        (Math.random() - 0.5) * radius * 0.4,
-                    ];
-                }
-                case "oval": {
-                    const angle = Math.random() * 2 * Math.PI;
-                    const r = Math.random() * radius;
-                    return [Math.cos(angle) * r * 1.1, Math.sin(angle) * r * 0.6];
-                }
-                case "polygon": {
-                    return [
-                        (Math.random() - 0.5) * radius * 2.5 * Math.random(),
-                        (Math.random() - 0.5) * radius * 2.5 * Math.random(),
-                    ];
-                }
-                default: {
-                    return [
-                        (Math.random() - 0.5) * radius * 2.0,
-                        (Math.random() - 0.5) * radius * 2.0,
-                    ];
-                }
+          switch (patchShape) {
+              case "round": {
+                  const angle = Math.random() * 2 * Math.PI;
+                  const r = Math.random() * radius * 0.5;
+                  return [Math.cos(angle) * r, Math.sin(angle) * r];
+              }
+              case "patch": {
+                  const angle = Math.random() * 2 * Math.PI;
+                  const r = Math.random() * radius;
+                  return [Math.cos(angle) * r * 1.5, Math.sin(angle) * r * 0.8];
+              }
+              case "stripe": {
+                  return [
+                      (Math.random() - 0.5) * radius * 2.2,
+                    (Math.random() - 0.5) * radius * 0.4
+                ];
             }
-        }
+            case "oval": {
+                const angle = Math.random() * 2 * Math.PI;
+                const r = Math.random() * radius;
+                return [Math.cos(angle) * r * 1.1, Math.sin(angle) * r * 0.6];
+            }
+            case "polygon": {
+                return [
+                    (Math.random() - 0.5) * radius * 2.5 * Math.random(),
+                    (Math.random() - 0.5) * radius * 2.5 * Math.random()
+                ];
+            }
+            default: {
+                return [
+                    (Math.random() - 0.5) * radius * 2.0,
+                      (Math.random() - 0.5) * radius * 2.0
+                  ];
+              }
+          }
+      }
 
         const inGardenTiles = selectedRefs.current;
         const flowerTiles = new Set();
@@ -372,55 +362,52 @@ export default function ThreeGrid({
             for (let c = 0; c < s.clusterSize; c++) {
                 if (inGardenTiles.length === 0) continue;
 
-                const { x: centerX, z: centerZ } =
-                    inGardenTiles[Math.floor(Math.random() * inGardenTiles.length)];
-                const patchRadius = 0.7 + Math.random() * 1.2;
-                const flowersInPatch =
-                    s.minFlowers +
-                    Math.floor(Math.random() * (s.maxFlowers - s.minFlowers + 1));
+              const { x: centerX, z: centerZ } = inGardenTiles[Math.floor(Math.random() * inGardenTiles.length)];
+              const patchRadius = 0.7 + Math.random() * 1.2;
+              const flowersInPatch = s.minFlowers + Math.floor(Math.random() * (s.maxFlowers - s.minFlowers + 1));
 
-                for (let i = 0; i < flowersInPatch; i++) {
-                    const [dx, dz] = randomPatchOffset(s.patchShape, patchRadius);
-                    const px = centerX + dx;
-                    const pz = centerZ + dz;
+              for (let i = 0; i < flowersInPatch; i++) {
+                  const [dx, dz] = randomPatchOffset(s.patchShape, patchRadius);
+                  const px = centerX + dx;
+                  const pz = centerZ + dz;
 
-                    const posX = px * tileSize - halfGridSize + tileSize / 2;
-                    const posZ = pz * tileSize - halfGridSize + tileSize / 2;
+              const posX = px * tileSize - halfGridSize + tileSize / 2;
+              const posZ = pz * tileSize - halfGridSize + tileSize / 2;
 
-                    const tileX = Math.round(px);
-                    const tileZ = Math.round(pz);
-                    flowerTiles.add(`${tileX}_${tileZ}`);
+              const tileX = Math.round(px);
+              const tileZ = Math.round(pz);
+              flowerTiles.add(`${tileX}_${tileZ}`);
 
-                    loader.load(s.img, (tex) => {
-                        const w = 0.3, h = 0.4;
-                        const geom = new THREE.PlaneGeometry(w, h);
-                        geom.translate(0, h / 2, 0);
+              loader.load(s.img, (tex) => {
+                  const w = 0.3, h = 0.4;
+                  const geom = new THREE.PlaneGeometry(w, h);
+                  geom.translate(0, h / 2, 0);
 
-                        const mat = new THREE.MeshBasicMaterial({
-                            map: tex,
-                            transparent: true,
-                            side: THREE.DoubleSide,
-                            alphaTest: 0.1,
-                            depthWrite: false,
-                        });
+                const mat = new THREE.MeshBasicMaterial({
+                    map: tex,
+                    transparent: true,
+                    side: THREE.DoubleSide,
+                    alphaTest: 0.1,
+                    depthWrite: false,
+                });
 
-                        const scale = 0.7 + Math.random() * 0.5;
-                        const baseHeight = s.baseHeight || 1;
-                        const variation = Math.random() * 0.1 - 0.05;
-                        const adjustedHeightScale = baseHeight + variation;
+                const scale = 0.7 + Math.random() * 0.5;
+                const baseHeight = s.baseHeight || 1;
+                const variation = Math.random() * 0.1 - 0.05;
+                const adjustedHeightScale = baseHeight + variation;
 
-                        const sp = new THREE.Mesh(geom, mat);
-                        sp.scale.set(scale, adjustedHeightScale, scale);
-                        sp.position.set(posX, 0, posZ);
-                        sp.rotation.y = Math.random() * Math.PI * 2;
-                        sp.userData.windPhase = Math.random() * Math.PI * 2;
-                        sp.userData.windSpeed = 0.8 + Math.random() * 0.4;
-                        scene.add(sp);
-                        spriteMap.current.set(`flower_${Math.random()}`, sp);
-                    });
-                }
-            }
-        });
+                const sp = new THREE.Mesh(geom, mat);
+                sp.scale.set(scale, adjustedHeightScale, scale);
+                sp.position.set(posX, 0, posZ);
+                sp.rotation.y = Math.random() * Math.PI * 2;
+                sp.userData.windPhase = Math.random() * Math.PI * 2;
+                sp.userData.windSpeed = 0.8 + Math.random() * 0.4;
+                scene.add(sp);
+                spriteMap.current.set(`flower_${Math.random()}`, sp);
+            });
+              }
+          }
+      });
 
         const grassGeometry = new THREE.PlaneGeometry(0.2, 0.24);
         grassGeometry.translate(0, 0.12, 0);
@@ -434,15 +421,9 @@ export default function ThreeGrid({
         });
 
         const grassCount = 2000;
-        const grassMesh = new THREE.InstancedMesh(
-            grassGeometry,
-            grassMaterial,
-            grassCount
-        );
+        const grassMesh = new THREE.InstancedMesh(grassGeometry, grassMaterial, grassCount);
 
-        const grassTiles = inGardenTiles.filter(
-            ({ x, z }) => !flowerTiles.has(`${x}_${z}`)
-        );
+        const grassTiles = inGardenTiles.filter(({ x, z }) => !flowerTiles.has(`${x}_${z}`));
 
         const dummy = new THREE.Object3D();
         if (grassTiles.length > 0) {
@@ -475,22 +456,15 @@ export default function ThreeGrid({
         };
     }, [
         settings.showPlant,
-        settings.gardenWidth,
-        settings.gardenHeight,
-        resetSprites,
-        viewMode, // **BELANGRIJK**: viewMode toegevoegd als dependency
+        settings.gardenWidth, settings.gardenHeight,
+        resetSprites
     ]);
 
     return (
         <div
             ref={mountRef}
             className="three-grid-canvas"
-            style={{
-                width: "100%",
-                height: "100%",
-                borderRadius: "14px",
-                overflow: "hidden",
-            }}
+            style={{ width: "100%", height: "100%", borderRadius: "14px", overflow: "hidden" }}
         />
     );
 }
