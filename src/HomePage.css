@@ -1,17 +1,36 @@
-/* ...existing code... */
+/* src/HomePage.css */
+
+.homepage-container {
+  min-height: 200vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+.three-grid-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+}
+
+.content-container {
+  position: relative;
+  z-index: 1;
+  color: black;
+}
 .landing-page {
   height: 100vh;
   display: flex;
-    flex-direction: column;
+  flex-direction: column;
     justify-content: center;
-    align-items: flex-start;
-  padding-left: 5rem;
+  align-items: center;
+    position: relative;
 }
 
-/* <-- toegevoegd */
-
 .title {
-  font-size: 6rem;
+  font-size: 3rem;
     font-weight: normal;
     margin: 0;
     color: black;
@@ -26,39 +45,39 @@
   z-index: 10;
 }
 
-/* <-- toegevoegd */
 .scroll-arrow {
   position: absolute;
-    bottom: 2rem;
+  bottom: 2rem;
     cursor: pointer;
     z-index: 10;
 }
-
-/* <-- toegevoegd */
 
 #tuin-maken {
   height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 3rem;
 }
-/* ...existing code... */
-
-.homepage-container {
-  /* Zorgt voor voldoende scrollruimte op de pagina */
-  min-height: 200vh;
-  /* Andere stijlen hier... */
-  
-  /* Stijlen voor de div die de 3D-grid vasthoudt */
-    .three-grid-canvas {
-      position: fixed;
-      /* Zorgt ervoor dat de grid vaststaat in de viewport */
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: -1;
-      /* Zorgt dat de grid achter de tekst staat */
-    }
+/* Nieuwe code voor positionering van de titel */
+.title-container {
+  position: absolute;
+  top: 40%;
+  /* Iets boven het midden */
+  left: 10%;
+  /* Aan de linkerkant van het scherm */
+  transform: translateY(-50%);
+  text-align: left;
+  max-width: 450px;
+}
+.main-title {
+  font-size: 3.5rem;
+  font-weight: normal;
+  margin: 0 0 1rem 0;
+  /* Ruimte onder de titel */
+  color: black;
+}
+.subtitle {
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #333;
 }
