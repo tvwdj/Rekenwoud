@@ -20,18 +20,14 @@
   z-index: 1;
   color: black;
 }
+
 .landing-page {
   height: 100vh;
-  display: flex;
-  flex-direction: column;
-    justify-content: center;
-  align-items: center;
-    position: relative;
 }
 
 .title {
   font-size: 3rem;
-    font-weight: normal;
+  font-weight: normal;
     margin: 0;
     color: black;
 }
@@ -42,13 +38,16 @@
   right: 2rem;
   display: flex;
   gap: 1.5rem;
-  z-index: 10;
+  z-index: 20;
+    /* Hoger z-index */
 }
 
 .scroll-arrow {
   position: absolute;
   bottom: 2rem;
-    cursor: pointer;
+  left: 50%;
+    transform: translateX(-50%);
+  cursor: pointer;
     z-index: 10;
 }
 
@@ -58,24 +57,27 @@
   justify-content: center;
   align-items: center;
 }
-/* Nieuwe code voor positionering van de titel */
+/* De wrapper is nu verwijderd. De container zelf is fixed. */
 .title-container {
-  position: absolute;
-  top: 40%;
-  /* Iets boven het midden */
-  left: 10%;
-  /* Aan de linkerkant van het scherm */
-  transform: translateY(-50%);
+  position: fixed;
+    /* Staat nu vast op het scherm */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    /* Start perfect in het midden */
+    z-index: 15;
+    width: 450px;
+    max-width: 90%;
   text-align: left;
-  max-width: 450px;
 }
+
 .main-title {
   font-size: 3.5rem;
   font-weight: normal;
   margin: 0 0 1rem 0;
-  /* Ruimte onder de titel */
   color: black;
 }
+
 .subtitle {
   font-size: 1rem;
   line-height: 1.5;
