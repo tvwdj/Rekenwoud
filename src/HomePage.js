@@ -11,19 +11,18 @@ export default function HomePage() {
 
         const tl = gsap.timeline({
             scrollTrigger: {
-                // De trigger is nu de hele homepage container
                 trigger: ".homepage-container",
                 start: "top top",
-                end: "bottom center", // Animatie duurt tot de pagina half gescrolld is
+                end: "bottom center",
                 scrub: true,
             },
         });
 
-        // Animaties:
+        // Animatie:
+        // Verplaats alleen de verticale positie en pas de transform aan.
         tl.to(".title-container", {
             top: "2rem",
-            left: "2rem",
-            transform: "translate(0, 0)"
+            transform: "translateY(0)" // Verwijder de verticale centrering
         }, 0);
 
         tl.to(".subtitle", { opacity: 0, duration: 0.3 }, 0);
@@ -40,7 +39,6 @@ export default function HomePage() {
             <ThreeGrid />
             <div className="content-container">
 
-                {/* De tekst-container staat nu hier, los van de rest */}
                 <div className="title-container">
                     <h1 className="main-title">Rekenwoud</h1>
                     <p className="subtitle">

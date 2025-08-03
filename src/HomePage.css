@@ -28,7 +28,7 @@
 .title {
   font-size: 3rem;
   font-weight: normal;
-    margin: 0;
+  margin: 0;
     color: black;
 }
 
@@ -39,16 +39,15 @@
   display: flex;
   gap: 1.5rem;
   z-index: 20;
-    /* Hoger z-index */
 }
 
 .scroll-arrow {
   position: absolute;
   bottom: 2rem;
   left: 50%;
-    transform: translateX(-50%);
+  transform: translateX(-50%);
   cursor: pointer;
-    z-index: 10;
+  z-index: 10;
 }
 
 #tuin-maken {
@@ -57,14 +56,14 @@
   justify-content: center;
   align-items: center;
 }
-/* De wrapper is nu verwijderd. De container zelf is fixed. */
+
 .title-container {
   position: fixed;
-    /* Staat nu vast op het scherm */
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    /* Start perfect in het midden */
+  top: 50%;
+  left: 5%;
+    /* Start aan de linkerkant */
+    transform: translateY(-50%);
+    /* Alleen verticaal centreren */
     z-index: 15;
     width: 450px;
     max-width: 90%;
